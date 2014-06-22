@@ -1,4 +1,8 @@
-## Mine course project for Getting & Cleaning Data
+## Mine course project for Practical Machine Learning
+
+Script placed in PracticalMachineLearningAssignment.Rmd file, plus related MarkDown & HTML files with same name.
+
+## (obsolete) Mine course project for Getting & Cleaning Data
 
 Script placed in rn_analysis.R file, and requires 'reshape2' package for it's work.
 
