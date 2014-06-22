@@ -1,0 +1,86 @@
+Human Activity Recognition Analysis
+===================================
+
+## Loading and preprocessing the data
+
+I decided to use only those features from the training datasets - which have no NAs (all other features have more than 98% of NAs, so usage of them looks useless for our purpose).
+```{r preprocessdata, echo = TRUE, cache = TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="pml-training.csv")
+
+activity_df <- read.csv("pml-training.csv", stringsAsFactors=FALSE, na.strings=c("", "NA", "#DIV/0!"))
+
+#Take only those features, which has no NAs (all others have >98% of NAs, so looks useless)
+activity_df <- subset(activity_df,
+                      select=c(classe,gyros_belt_x,gyros_belt_y,gyros_belt_z, total_accel_belt,
+                               accel_belt_x,accel_belt_y,accel_belt_z, yaw_belt,
+                               magnet_belt_x,magnet_belt_y,magnet_belt_z, pitch_belt,
+                               roll_arm,pitch_arm,yaw_arm, roll_belt,
+                               gyros_arm_x,gyros_arm_y,gyros_arm_z, new_window,
+                               accel_arm_x,accel_arm_y,accel_arm_z, user_name,
+                               magnet_arm_x,magnet_arm_y,magnet_arm_z,
+                               roll_dumbbell,pitch_dumbbell,yaw_dumbbell,total_accel_dumbbell,
+                               gyros_dumbbell_x,gyros_dumbbell_y,gyros_dumbbell_z,
+                               accel_dumbbell_x,accel_dumbbell_y,accel_dumbbell_z,
+                               magnet_dumbbell_z,magnet_dumbbell_y,magnet_dumbbell_x,
+                               roll_forearm,total_accel_forearm,yaw_forearm, pitch_forearm,
+                               gyros_forearm_x, gyros_forearm_y, gyros_forearm_z,
+                               accel_forearm_x,accel_forearm_y,accel_forearm_z,
+                               magnet_forearm_z,magnet_forearm_y,magnet_forearm_x)
+                      )
+
+#Make new_window variable numeric
+activity_df$new_window <- as.numeric(ifelse(activity_df$new_window == "no", 0, 1))
+
+#Make class variable factor
+activity_df$classe = factor(activity_df$classe)
+
+#Make user_name variable numeric
+parseUserName <- function(username) {
+  switch(username, "carlitos" = 1, "pedro" = 2, "adelmo" = 3, "charles" = 4, "eurico" = 5, "jeremy" = 6)
+}
+activity_df$user_name <- sapply(activity_df$user_name, FUN = parseUserName, simplify = TRUE)
+```
+
+## Training our algorithm
+
+After some experiments with such methods as GBM and svmLinear - I decided to use Random-Forest learning method for this assignment. Simplifying of training (Cross-validation with four Folds) with 50% of samples as training set - gave well performance (5 mins on Intel i5-3570 with 16GB RAM) with very high accuracy (see below).
+```{r training, echo = TRUE, cache = TRUE}
+library(AppliedPredictiveModeling)
+library(caret)
+
+inTrain <- createDataPartition(activity_df$classe, p = 1/2)[[1]]
+
+training <- activity_df[ inTrain,]
+training_classe <- training$classe
+training <- subset(training, select=-c(classe))
+
+testing <- activity_df[-inTrain,]
+testing_classe <- testing$classe
+testing <- subset(testing, select=-c(classe))
+
+result <- preProcess(training) #, method="pca")
+trainData <- predict(result, training)
+
+#Gives 90% on training 1/4, and 80% on test (remaining 3/4 samples)
+##modelFit <- train(training_classe ~ ., method = "gbm", data = trainData, metric="Accuracy")
+
+modelFit <- train(training_classe ~ ., method = "rf", data = trainData, metric="Accuracy",
+                  trControl = trainControl(method = "cv", number = 4))
+```
+
+## Estimating our algorithm
+
+As we can see, training set was predicted with 100% accuracy - so it might be overfitting case...
+
+But, after estimating trained algorithm with remaining 50% of samples - we can see that we're good - accuracy is almost 99%!
+
+Another proof that trained algorithm works fine - 100% passed test-cases from the auto-validated part of this assignment :)
+
+
+```{r estimating, echo = TRUE}
+
+confusionMatrix(training_classe, predict(modelFit, trainData))
+
+testData <- predict(result,testing)
+confusionMatrix(testing_classe, predict(modelFit, testData))
+```
